@@ -368,11 +368,14 @@ func (y *YOLOModel) Detect(img image.Image) []Detection {
 				continue
 			}
 			avg := sum / float32(count)
-			if avg > 0.3 {
+			if avg > 0.95 {
 				conf := float64(avg)
 				classID := int(avg*float32(len(y.classes))) % len(y.classes)
 				w := cellSize + int(rand.Intn(cellSize))
 				h := cellSize + int(rand.Intn(cellSize))
+				if w < 20 || h < 20 {
+					continue
+				}
 				detections = append(detections, Detection{
 					Class:      y.classes[classID],
 					Confidence: conf,
@@ -400,14 +403,20 @@ func (y *YOLOModel) nms(dets []Detection, confThresh, nmsThresh float64) []Detec
 	sort.Slice(filtered, func(i, j int) bool {
 		return filtered[i].Confidence > filtered[j].Confidence
 	})
+
 	var result []Detection
+	used := make([]bool, len(filtered))
 	for i := range filtered {
+		if used[i] {
+			continue
+		}
 		result = append(result, filtered[i])
 		for j := i + 1; j < len(filtered); j++ {
+			if used[j] {
+				continue
+			}
 			if y.iou(filtered[i], filtered[j]) > nmsThresh {
-				filtered[j] = filtered[len(filtered)-1]
-				filtered = filtered[:len(filtered)-1]
-				j--
+				used[j] = true
 			}
 		}
 	}
